@@ -1037,6 +1037,7 @@ ON DELETE RESTRICT  -- Preserva integridad histórica */
 --------------------------------------------------------------------------------------------
 /** ON UPDATE CASCADE **/
 -- Cuando actualizas PRIMARY KEY del padre, actualiza automáticamente FKs en hijos.
+-- Recomendación: Usa ON UPDATE RESTRICT (default) para prevenir cambios
 CREATE TABLE clientes (
     id     INT PRIMARY KEY,
     nombre VARCHAR(100)
@@ -1064,3 +1065,87 @@ UPDATE clientes SET id = 100 WHERE id = 10;
 -- Verificar
 SELECT * FROM ordenes;
 -- cliente_id ahora = 100 en ambas (actualizado automáticamente)
+--------------------------------------------------------------------------------------------
+/** EJEMPLO BLOG 3 NIVELES **/
+-- Nivel 1: Autores
+CREATE TABLE autores (
+    id     INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL
+);
+
+-- Nivel 2: Posts (pertenecen a autores)
+CREATE TABLE posts (
+    id       INT AUTO_INCREMENT PRIMARY KEY,
+    autor_id INT NOT NULL,
+    titulo   VARCHAR(200),
+    FOREIGN KEY (autor_id) REFERENCES autores(id)
+        ON DELETE RESTRICT  -- No eliminar autor con posts
+        ON UPDATE CASCADE
+);
+
+-- Nivel 3: Comentarios (pertenecen a posts)
+CREATE TABLE comentarios (
+    id      INT AUTO_INCREMENT PRIMARY KEY,
+    post_id INT NOT NULL,
+    texto   TEXT,
+    FOREIGN KEY (post_id) REFERENCES posts(id)
+        ON DELETE CASCADE   -- Eliminar comentarios si post se elimina
+        ON UPDATE CASCADE
+);
+--------------------------------------------------------------------------------------------
+/*** EJERCICIOS ***/
+/** EJERCICIO 1 - IMPLEMETAR CASCADE **/
+-- Crea tablas autores y libros con ON DELETE CASCADE
+CREATE TABLE autores (
+    id     INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE libros (
+    id       INT AUTO_INCREMENT PRIMARY KEY,
+    autor_id INT NOT NULL,
+    titulo   VARCHAR(200) NOT NULL,
+    FOREIGN KEY (autor_id) REFERENCES autores(id)
+        ON DELETE CASCADE
+);
+
+-- Probar
+INSERT INTO autores (id, nombre) VALUES (1, 'Gabriel García Márquez');
+INSERT INTO libros (autor_id, titulo) VALUES (1, 'Cien años de soledad');
+DELETE FROM autores WHERE id = 1;  -- Elimina autor Y libro
+
+/** EJERCICIO 2 - IMPLEMETAR SET NULL **/
+-- Productos con categoría opcional (SET NULL)
+CREATE TABLE categorias (
+    id     INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE productos (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    nombre       VARCHAR(100) NOT NULL,
+    categoria_id INT NULL,  -- Permitir NULL
+    FOREIGN KEY (categoria_id) REFERENCES categorias(id)
+        ON DELETE SET NULL
+);
+
+-- Probar
+INSERT INTO categorias (id, nombre) VALUES (1, 'Electrónica');
+INSERT INTO productos (nombre, categoria_id) VALUES ('Laptop', 1);
+DELETE FROM categorias WHERE id = 1;  -- Producto queda sin categoría (NULL)
+SELECT * FROM productos;  -- categoria_id = NULL
+
+/** EJERCICIO 3 - CAMBIAR ACCION DE FK **/
+-- Cambia FK de RESTRICT a CASCADE
+-- Ver constraint actual
+SHOW CREATE TABLE ordenes;
+
+-- Eliminar FK existente
+ALTER TABLE ordenes DROP FOREIGN KEY fk_ordenes_cliente;
+
+-- Agregar con CASCADE
+ALTER TABLE ordenes
+ADD CONSTRAINT fk_ordenes_cliente
+    FOREIGN KEY (cliente_id) REFERENCES clientes(id)
+    ON DELETE CASCADE
+    ON UPDATE RESTRICT;

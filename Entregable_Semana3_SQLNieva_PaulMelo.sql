@@ -4,15 +4,6 @@
 -- Nombre: [PAUL SEBASTIAN MELO]
 -- Fecha: [10-07-2026]
 -- =====================================
-/*
-DROP DATABASE IF EXISTS bibliotech_library;
-CREATE DATABASE bibliotech_library;
-*/
-
-USE bibliotech_library;
-
-SELECT DATABASE ();
-
 /*** FASE 1 - DISEÑAR ERD ***/
 
 /** PASO 1 - ENTIDADES **/
@@ -38,296 +29,345 @@ Libros → Préstamos	    1:N	                   FK book_id en loans
 -- Muchos préstamos pertenecen a un usuario → la FK user_id vive en loans.
 
 
+/** PASO 3 - ERD USANDO dbdiagram.io **/
+/**
+// ============================================
+//  BiblioTech — ERD completo (6 tablas)
+//  Usando dbdiagram.io
+// ============================================
+
+Table categories {
+  id          int [pk, increment]
+  name        varchar [unique, not null]
+  description text
+}
+
+Table authors {
+  id         int [pk, increment]
+  name       varchar [not null]
+  country    varchar
+  birth_date date
+}
+
+Table users {
+  id              int [pk, increment]
+  email           varchar [unique, not null]
+  name            varchar [not null]
+  membership_type varchar
+}
+
+Table books {
+  id               int [pk, increment]
+  isbn             varchar [unique, not null]
+  title            varchar [not null]
+  category_id      int [ref: > categories.id] // books → categories (N:1)
+  publication_year int
+  price            decimal
+  stock            int
+}
+
+Table loans {
+  id         int [pk, increment]
+  user_id    int [ref: > users.id] // loans → users (N:1)
+  book_id    int [ref: > books.id] // loans → books (N:1)
+  loan_date  date
+  due_date   date
+  fine       decimal
+}
+
+Table book_authors {
+  book_id      int [ref: > books.id]
+  author_id    int [ref: > authors.id]
+  author_order int
+  indexes {
+    (book_id, author_id) [pk] // PK compuesta
+  }
+}
+**/
+/* CONEXIONES EDR
+-- (cada línea ref: > es una flecha)
+Línea ref:	                         Flecha en el diagrama	 Relación
+books.category_id > categories.id	|books → categories	    |N:1 (muchos libros, una categoría)
+loans.user_id > users.id	        |loans → users	        |N:1 (muchos préstamos, un usuario)
+loans.book_id > books.id	        |loans → books	        |N:1 (muchos préstamos, un libro)
+book_authors.book_id > books.id	    |book_authors → books	|parte 1 de la N:M
+book_authors.author_id > authors.id |book_authors → authors	|parte 2 de la N:M
+*/
+
+/* DIAGRAMA EDR
+┌──────────────┐         ┌───────────────┐         ┌──────────────┐
+│  CATEGORIES  │◄───┐    │     BOOKS     │    ┌───►│   AUTHORS    │
+├──────────────┤    │    ├───────────────┤    │    ├──────────────┤
+│ 🔑 id        │    │    │ 🔑 id         │    │    │ 🔑 id        │
+│   name       │    │    │   isbn        │    │    │   name       │
+│   descript.  │    │    │ 🔗 categ_id   │────┘    │   country    │
+└──────────────┘    │    │   title       │         │   birth_date │
+                    │    │   year, price │         └──────────────┘
+                    │    │   stock       │                  ▲
+                    │    └───────┬───────┘                  │
+                    └────1:N─────┘                          │
+                                 │                          │
+                                 ▼                          │
+                       ┌─────────────────────┐              │
+                       │    BOOK_AUTHORS     │              │
+                       │  (junction table)   │              │
+                       ├─────────────────────┤              │
+                       │ 🔑+🔗 book_id       │              │
+                       │ 🔑+🔗 author_id     │──────N:M─────┘
+                       │     author_order    │
+                       └─────────────────────┘
+
+┌──────────────┐         ┌───────────────────┐
+│    USERS     │◄────────┤       LOANS       │
+├──────────────┤   1:N   ├───────────────────┤
+│ 🔑 id        │         │ 🔑 id             │
+│   email      │         │ 🔗 user_id        │
+│   name       │         │ 🔗 book_id        │──► BOOKS
+│   membership │         │   loan_date       │
+└──────────────┘         │   due_date        │
+                         │   return_date     │
+                         │   fine            │
+                         └───────────────────┘
+*/
 
 
-/** Eliminamos la tabla productos/ventas - si existe **/
-DROP TABLE IF EXISTS productos;
-DROP TABLE IF EXISTS ventas;
+DROP DATABASE IF EXISTS bibliotech_library;
+CREATE DATABASE bibliotech_library;
 
-/** Creamos las tablas productos **/
-CREATE TABLE productos (
-    id                  INT AUTO_INCREMENT PRIMARY KEY,      /** ID del producto - Llave primaria **/
-    codigo_producto     VARCHAR(20) UNIQUE NOT NULL,
-    nombre              VARCHAR(150) NOT NULL,               /** Nombre del producto **/
-    descripcion         TEXT,
-    precio              DECIMAL (10,2),                      /** Precio del producto **/
-    costo               DECIMAL(10,2) NOT NULL,
-    stock               INT DEFAULT 0,                       /** Inventario del producto **/
-    stock_minimo        INT DEFAULT 5,
-    proveedor           VARCHAR(100),
-    categoria           VARCHAR(50),                         /** Categoría del producto **/
-    activo              BOOLEAN DEFAULT TRUE,                /** Producto disponible para la venta **/
-    fecha_creacion      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  /** Fecha creacion del producto en BD **/
-    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
-						ON UPDATE CURRENT_TIMESTAMP
+USE bibliotech_library;
+
+SELECT DATABASE ();
+--------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+/*** FASE 2 - TABLAS PRINCIPALES ***/
+/*
+1. categories     (no depende de nadie)
+2. authors        (no depende de nadie)
+3. books          (depende de categories)
+4. book_authors   (depende de books y authors)
+5. users          (no depende de nadie)
+6. loans          (depende de users y books)
+*/
+
+/** Eliminamos la tablas principales - si existe **/
+DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS authors;
+DROP TABLE IF EXISTS books;
+DROP TABLE IF EXISTS book_authors;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS loans;
+
+/** Creamos la tabla categories **/
+-- Atributos: id, name, description
+CREATE TABLE categories (
+    id           INT AUTO_INCREMENT PRIMARY KEY,   /** ID de la categoria - Llave primaria **/
+    name         VARCHAR(50) UNIQUE NOT NULL,      /** Nombre de la categoria - Unico **/
+    description  TEXT
 );
 
-/** Creamos las tablas ventas **/
-CREATE TABLE ventas (
-    id           INT AUTO_INCREMENT PRIMARY KEY,
-    producto_id  INT NOT NULL,
-    cantidad     INT NOT NULL,
-    precio_venta DECIMAL(10,2) NOT NULL,
-    total        DECIMAL(10,2) NOT NULL,
-    fecha_venta  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+/** Insertamos las categorías de los libros **/
+INSERT INTO productos (name, descripcion)
+VALUES
+      ('Fiction',    'Novels and fiction stories'),
+      ('Science',    'Scientific and technical books'),
+      ('History',    'History books and biographies'),
+      ('Children',   'Literature for children'),
+      ('Technology', 'Programming, development, AI');
+
+/** Creamos la tabla authors **/
+-- Atributos: id, name, country, birth_date
+CREATE TABLE authors (
+    id          INT AUTO_INCREMENT PRIMARY KEY,  /** ID de la categoria - Llave primaria **/
+    name        VARCHAR(150) NOT NULL,           /** Nombre del author(es) - No NULL **/
+    country     VARCHAR(50),                     /** Pais de nacimiento **/
+    birth_date  DATE,                            /** Fecha de nacimiento **/
+    biography   TEXT                             /** Bibliografia **/
+);
+
+/** Insertamos los autores de los libros **/
+INSERT INTO authors (name, country, birth_date)
+VALUES
+      ('Gabriel García Márquez', 'Colombia',       '1927-03-06'),   -- 1
+      ('Isabel Allende',         'Chile',          '1942-08-02'),   -- 2
+      ('Stephen Hawking',        'United Kingdom', '1942-01-08'),   -- 3
+      ('J.K. Rowling',           'United Kingdom', '1965-07-31'),   -- 4
+      ('Yuval Noah Harari',      'Israel',         '1976-02-24'),   -- 5
+      ('Roald Dahl',             'United Kingdom', '1916-09-13'),   -- 6
+      ('Andrew S. Tanenbaum',    'United States',  '1944-03-16'),   -- 7
+      ('Ian Goodfellow',         'United States',  '1985-01-01'),   -- 8
+      ('Yoshua Bengio',          'Canada',         '1964-03-05'),   -- 9
+      ('Eric Matthes',           'United States',  '1970-01-01'),   -- 10
+      ('Joshua Bloch',           'United States',  '1961-08-28');   -- 11
+
+/** Creamos la tabla books **/
+-- Atributos: id, isbn, title, category_id, publication_year, price, stock
+CREATE TABLE books (
+    id                 INT AUTO_INCREMENT PRIMARY KEY,      /** ID de la categoria - Llave primaria **/
+    isbn               VARCHAR(20) UNIQUE NOT NULL,         /** Identificador unico de libros - ISBN **/
+    title              VARCHAR(250) NOT NULL,               /** Titulo del libro - No NULL **/
+    category_id        INT,                                 /** ID categoria, FK tabla categories **/
+    publication_year   INT,                                 /** Anio de publicacion **/
+    price              DECIMAL(10,2) NOT NULL,              /** Costo del libro - No 0 **/            
+    stock              INT DEFAULT 0,                       /** Inventario **/
+    is_active          BOOLEAN DEFAULT TRUE,                /** Se encuentra activo para loans **/
+    added_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_books_categories
+      FOREIGN KEY (category_id) REFERENCES categories(id)
+      ON DELETE SET NULL,
+    
+    CONSTRAINT chk_year  CHECK (publication_year BETWEEN 1450 AND 2100),
+    CONSTRAINT chk_price CHECK (price > 0),
+    CONSTRAINT chk_stock CHECK (stock >= 0)
+);
+
+/** Insertamos los libros **/
+INSERT INTO books (isbn, title, category_id, year_publication, price, stock)
+VALUES
+    -- Fiction (cat 1)
+      ('978-0307474728', 'One Hundred Years of Solitude',            1, 1967, 18.99, 5),
+      ('978-0142437247', 'The House of the Spirits',                 1, 1982, 16.50, 3),
+      ('978-0439708180', 'Harry Potter and the Philosopher''s Stone',1, 1997, 22.99, 8),
+
+      -- Science (cat 2)
+      ('978-0553380163', 'A Brief History of Time',                  2, 1988, 15.99, 4),
+      ('978-0062316097', 'Sapiens: A Brief History of Humankind',    2, 2011, 24.99, 6),
+      ('978-0062464310', 'Homo Deus',                                2, 2015, 26.50, 4),
+
+      -- History (cat 3)
+      ('978-0062315007', '21 Lessons for the 21st Century',          3, 2018, 20.99, 5),
+
+      -- Children (cat 4)
+      ('978-0142410318', 'Matilda',                                  4, 1988, 12.99, 10),
+      ('978-0142410387', 'Charlie and the Chocolate Factory',        4, 1964, 14.50, 7),
+      ('978-0141365534', 'The BFG',                                  4, 1982, 13.99, 6),
+
+      -- Technology (cat 5)
+      ('978-0132126953', 'Modern Operating Systems',                 5, 2007, 89.99, 3),
+      ('978-0262035613', 'Deep Learning',                            5, 2016, 75.00, 2),
+      ('978-0135957059', 'Computer Networks',                        5, 2010, 95.50, 2),
+      ('978-1593279288', 'Python Crash Course',                      5, 2019, 39.99, 8),
+      ('978-0134685991', 'Effective Java',                           5, 2017, 54.99, 4);
+
+/** Creamos las tablas users **/ 
+-- Atributos: id, email, name, phone, membership_type
+CREATE TABLE users (
+    id               INT AUTO_INCREMENT PRIMARY KEY,
+    email            VARCHAR(150) UNIQUE NOT NULL, 
+    name             VARCHAR(150) NOT NULL,
+    phone            VARCHAR(20),
+    membership_type  ENUM('basic', 'premium', 'vip') DEFAULT 'basic', /** ENUM - Lista enumerada por valores **/
+    is_active        BOOLEAN DEFAULT TRUE,                            /** Usuario se encuentra activo **/
+    registered_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+/** Insertamos los usuarios **/
+INSERT INTO users (email, name, phone, membership_type)
+VALUES
+      ('alice.garcia@email.com',     'Alice Garcia',     '555-0001', 'premium'),   -- 1
+      ('charles.lopez@email.com',    'Charles Lopez',    '555-0002', 'basic'),     -- 2
+      ('mary.torres@email.com',      'Mary Torres',      '555-0003', 'vip'),       -- 3
+      ('john.perez@email.com',       'John Perez',        NULL,      'basic'),     -- 4
+      ('lucy.martinez@email.com',    'Lucy Martinez',    '555-0005', 'premium'),   -- 5
+      ('sophie.rodriguez@email.com', 'Sophie Rodriguez', '555-0006', 'basic'),     -- 6
+      ('david.fernandez@email.com',  'David Fernandez',   NULL,      'basic');     -- 7
+
+/** Creamos las tablas loans **/ 
+-- Atributos: id, user_id, book_id, loan_date, due_date, return_date, fine, notes
+CREATE TABLE loans (
+    id           INT AUTO_INCREMENT PRIMARY KEY,       /** ID de la categoria - Llave primaria **/
+    user_id      INT NOT NULL,                         /** ID usuarios, FK tabla users **/
+    book_id      INT NOT NULL,                         /** ID libros, FK tabla books **/
+    loan_date    DATE NOT NULL DEFAULT (CURRENT_DATE), /** Fecha prestamo **/
+    due_date     DATE NOT NULL,
+    return_date  DATE,
+    fine         DECIMAL(10,2) DEFAULT 0.00,
+    notes        TEXT,
+
+    CONSTRAINT fk_loans_users
+      FOREIGN KEY (user_id) REFERENCES users(id)
+      ON DELETE RESTRICT, -- No puedes borrar un usuario que tiene prestamos
+
+    CONSTRAINT fk_loans_books
+      FOREIGN KEY (book_id) REFERENCES books(id)
+      ON DELETE RESTRICT, -- No puedes borrar un libro prestado
+
+    CONSTRAINT chk_fine CHECK (fine >= 0),
+    CONSTRAINT chk_return_date CHECK (
+        return_date IS NULL OR
+        return_date >= loan_date
+    )
 );
 
 SHOW TABLES;
-DESCRIBE productos;
-DESCRIBE ventas;
+DESCRIBE categories;
+DESCRIBE authors;
+DESCRIBE books;
+DESCRIBE users;
 
-/*** FASE 2 - INSERTAR DATOS EN TABLAS productos - ventas ***/
-/** Cargar el catálogo y las primeras ventas **/
+/* Validamos la informacion */
+SELECT
+  SELECT COUNT(*) FROM categories   AS categories,
+  SELECT COUNT(*) FROM authors      AS authors,
+  SELECT COUNT(*) FROM books        AS books,
+  SELECT COUNT(*) FROM users        AS users;
+--------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+/*** FASE 3 - TABLA UNIION N:M ***/
 
-/** Insertamos los productos en la tabla productos **/
-INSERT INTO productos
-    (codigo_producto, nombre, descripcion, categoria, precio, costo, stock, stock_minimo, proveedor, activo)
+/** PASO 1 - CREAR TABLA UNION - book_authors **/
+
+/** Eliminamos la tabla book_authors - si existe **/
+DROP TABLE IF EXISTS book_authors;
+
+/** Creamos la tabla book_authors **/
+-- Atributos: book_id, author_id, author_order
+CREATE TABLE book_authors (
+    book_id       INT NOT NULL,   /** ID libros, FK tabla books **/
+    author_id     INT NOT NULL,   /** ID autores, FK tabla authors **/
+    author_order  INT DEFAULT 1,  /** 1 = autor principal, 2 = co-autor, etc **/
+
+    PRIMARY KEY (book_id, author_id)
+
+    CONSTRAINT fk_ba_books
+      FOREIGN KEY (book_id) REFERENCES books(id)
+      ON DELETE CASCADE,
+    
+    CONSTRAINT fk_ba_authors
+      FOREIGN KEY (author_id) REFERENCES authors(id)
+      ON DELETE CASCADE
+);
+
+/** PASO 2 - CARAGA INFORMACION TABLA book_authors **/
+
+/** Insertamos parejas libro-autor en la tabla book_authors **/
+INSERT INTO book_authors (book_id, author_id, author_order)
 VALUES
-    -- Laptops
-    ('LAP001', 'Laptop HP Pavilion 15', 'Laptop Intel i5, 8GB RAM, 256GB SSD', 'Laptops', 799.99, 650.00, 12, 5, 'HP Inc', TRUE),
-    ('LAP002', 'MacBook Air M2', 'Apple MacBook Air con chip M2, 8GB, 256GB', 'Laptops', 1299.99, 1050.00, 8, 3, 'Apple', TRUE),
-    ('LAP003', 'Dell XPS 13', 'Ultrabook Dell XPS 13, i7, 16GB, 512GB SSD', 'Laptops', 1499.99, 1200.00, 5, 3, 'Dell', TRUE),
-    ('LAP004', 'Lenovo ThinkPad', NULL, 'Laptops', 899.99, 720.00, 0, 5, 'Lenovo', FALSE),
+      (1,  1, 1),   -- One Hundred Years → García Márquez
+      (2,  2, 1),   -- The House of the Spirits → Allende
+      (3,  4, 1),   -- Harry Potter → Rowling
+      (4,  3, 1),   -- A Brief History → Hawking
+      (5,  5, 1),   -- Sapiens → Harari
+      (6,  5, 1),   -- Homo Deus → Harari
+      (7,  5, 1),   -- 21 Lessons → Harari
+      (8,  6, 1),   -- Matilda → Dahl
+      (9,  6, 1),   -- Charlie → Dahl
+      (10, 6, 1),   -- The BFG → Dahl
+      (11, 7, 1),   -- Modern Operating Systems → Tanenbaum
+      (12, 8, 1),   -- Deep Learning → Goodfellow (autor principal)
+      (12, 9, 2),   -- Deep Learning → Bengio (co-autor)   ← ¡un libro, dos autores!
+      (13, 7, 1),   -- Computer Networks → Tanenbaum
+      (14, 10, 1),  -- Python Crash Course → Matthes
+      (15, 11, 1);  -- Effective Java → Bloch
 
-    -- Periféricos
-    ('PER001', 'Mouse Logitech MX Master 3', 'Mouse ergonómico inalámbrico', 'Perifericos', 99.99, 65.00, 35, 10, 'Logitech', TRUE),
-    ('PER002', 'Teclado Mecánico Keychron K2', 'Teclado mecánico RGB, switches Gateron Brown', 'Perifericos', 89.99, 55.00, 20, 8, 'Keychron', TRUE),
-    ('PER003', 'Webcam Logitech C920', 'Webcam Full HD 1080p', 'Perifericos', 79.99, 50.00, 15, 10, 'Logitech', TRUE),
-    ('PER004', 'Hub USB-C 7 puertos', NULL, 'Perifericos', 45.99, 25.00, 50, 15, 'Anker', TRUE),
-    ('PER005', 'Mouse Pad XL', 'Mouse pad gaming 90x40cm', 'Perifericos', 24.99, 10.00, 80, 20, 'SteelSeries', TRUE),
-    ('PER006', 'Soporte Laptop Ajustable', 'Soporte ergonómico aluminio', 'Perifericos', 39.99, 20.00, 25, 10, 'Rain Design', TRUE),
+/** PASO 3 - VERIFICAR RELACION N:M **/
 
-    -- Audio
-    ('AUD001', 'Audífonos Sony WH-1000XM5', 'Audífonos con cancelación de ruido', 'Audio', 399.99, 280.00, 10, 5, 'Sony', TRUE),
-    ('AUD002', 'Audífonos Gaming HyperX', NULL, 'Audio', 79.99, 45.00, 30, 10, 'HyperX', TRUE),
-    ('AUD003', 'Micrófono Blue Yeti', 'Micrófono USB profesional', 'Audio', 129.99, 85.00, 12, 6, 'Logitech', TRUE),
-    ('AUD004', 'Parlantes Logitech Z623', 'Sistema 2.1, 200W', 'Audio', 149.99, 95.00, 8, 5, 'Logitech', TRUE),
-    ('AUD005', 'Audífonos Bluetooth JBL', 'Audífonos inalámbricos portátiles', 'Audio', 49.99, 25.00, 2, 10, 'JBL', TRUE),
-
-    -- Componentes
-    ('COM001', 'SSD Samsung 1TB', 'SSD NVMe M.2 1TB', 'Componentes', 89.99, 60.00, 40, 15, 'Samsung', TRUE),
-    ('COM002', 'RAM Corsair 16GB DDR4', '16GB (2x8GB) DDR4 3200MHz', 'Componentes', 79.99, 50.00, 25, 10, 'Corsair', TRUE),
-    ('COM003', 'Monitor LG 27" 4K', 'Monitor IPS 27 pulgadas 4K', 'Componentes', 449.99, 320.00, 7, 5, 'LG', TRUE),
-    ('COM004', 'Cable HDMI 2.1 - 2m', NULL, 'Componentes', 19.99, 8.00, 100, 30, 'Cable Matters', TRUE),
-    ('COM005', 'Adaptador USB-C a HDMI', 'Adaptador 4K 60Hz', 'Componentes', 29.99, 15.00, 60, 20, 'Anker', TRUE);
-
-/** Insertamos las ventas inciales en la tabla ventas **/
-INSERT INTO ventas 
-	(producto_id, cantidad, precio_venta, total) 
-VALUES
-	(1,  2,  799.99, 1599.98),
-	(5,  5,   99.99,  499.95),
-	(6,  3,   89.99,  269.97),
-	(11, 1,  399.99,  399.99),
-	(16, 4,   89.99,  359.96);
-
-/* Validamos la información */
-SELECT COUNT(*) FROM productos;  -- 20
-SELECT COUNT(*) FROM ventas;     -- 5
-
-SELECT categoria, COUNT(*) 
-FROM productos 
-GROUP BY categoria;
-
-/*** FASE 3 - UPDATE ***/
-
-/** 3.1. - Aumentar precios de Audio en 10% **/
-/* SELECT → UPDATE → SELECT */
--- Paso 1 - Ver precios actuales y generar columna precio_nuevo
-SELECT nombre, precio, categoria, precio*1.10 AS precio_nuevo
-FROM productos
-WHERE categoria = "Audio";
-
--- Paso 2 - Aplicar aumento de precio a los productos
-/** SAFE MODE **/
-SET SQL_SAFE_UPDATES = 0;
-
-UPDATE productos
-SET precio = precio * 1.10
-WHERE categoria = "Audio";
-
-SET SQL_SAFE_UPDATES = 1;  -- Reactivas SAFE MODE
-
--- Paso 3 - Verificar que el cambio de precios
-SELECT nombre, precio, categoria
-FROM productos 
-WHERE categoria = "Audio";
-
-/** 3.2. - Reducir stock por las ventas hechas en Fase 2 **/
-/* START TRANSACTION → UPDATE → COMMIT/ROLLBACK */
--- Paso 1 — Se incia la transacción de cambios - borrador de cambios
-
-START TRANSACTION;
-
-UPDATE productos SET stock = stock - 2 WHERE id = 1;   -- venta 1: 2 unidades
-UPDATE productos SET stock = stock - 5 WHERE id = 5;   -- venta 2: 5 unidades
-UPDATE productos SET stock = stock - 3 WHERE id = 6;   -- venta 3: 3 unidades
-UPDATE productos SET stock = stock - 1 WHERE id = 11;  -- venta 4: 1 unidad
-UPDATE productos SET stock = stock - 4 WHERE id = 16;  -- venta 5: 4 unidades
-
--- Paso 2 — Revisamos los cambios realizados antes de aplicarlos en la tabla productos
-SELECT id, nombre, stock 
-FROM productos 
-WHERE id IN (1, 5, 6, 11, 16);
-
--- Paso 3 — Confirmamos los cambios realizados y aplicamos en la tabla productos
-COMMIT;
--- ROLLBACK;
-
-/** 3.3. - Marcar como inactivos los productos con stock bajo **/
-/* SELECT → UPDATE → SELECT */
--- Paso 1 — Verificamos productos con stock bajo
-SELECT nombre, stock, stock_minimo, activo
-FROM productos
-WHERE stock < stock_minimo;
-
--- Paso 2 - Producto no disponible - activo = FALSE
-/** SAFE MODE **/
-SET SQL_SAFE_UPDATES = 0;
-
-UPDATE productos
-SET activo = FALSE
-WHERE stock < stock_minimo;
-
-SET SQL_SAFE_UPDATES = 1;  -- Reactivas SAFE MODE
-
--- Paso 3 - Verificar que el cambio producto no disponible - activo = FALSE
-SELECT nombre, stock, stock_minimo, activo
-FROM productos
-WHERE activo = FALSE;
-
-/* CHEQUEO FECHA DE ACTUALIZACION */
-SELECT nombre, fecha_creacion, fecha_actualizacion 
-FROM productos 
-WHERE id IN (1, 5);
--- fecha_actualizacion debe ser HOY, fecha_creacion debe ser HOY también pero más temprano.
-
-/*** FASE 4 - DELETE: soft vs hard ***/
-/** 4.1. - Soft delete del Lenovo ThinkPad **/
-/* SELECT → UPDATE → SELECT */
--- Paso 0. — Agregar la columna deleted_at (esto es DDL: cambia la ESTRUCTURA)
-ALTER TABLE productos ADD COLUMN fecha_borrado TIMESTAMP NULL;
-
--- Paso 1. — Verificamos producto a borrar - id=4
-SELECT id, nombre, fecha_borrado
-FROM productos
-WHERE id = 4;
-
--- Paso 2 - Borrar producto - id=4
-UPDATE productos
-SET fecha_borrado = CURRENT_TIMESTAMP
-WHERE id = 4;
-
--- Paso 3 - Verificar que el producto borrado - fecha_borrado IS NOT NULL
-SELECT id, nombre, fecha_borrado
-FROM productos
-WHERE fecha_borrado IS NOT NULL;
-
--- Paso 4 - Verificar productos activos - fecha_borrado IS NULL 
-SELECT id, nombre
-FROM productos
-WHERE fecha_borrado IS NULL;
-
-/** 4.2. -  Hard delete: ventas viejas **/
-/* SELECT → UPDATE → SELECT */
--- Paso 1. — Verificamos productos a borrar
-SELECT * 
-FROM ventas 
-WHERE fecha_venta < '2023-01-01';
-
-SELECT COUNT(*)
-FROM ventas;
-
--- Paso 2 - Se procede a borrar los productos - DELETE
-/** SAFE MODE **/
-SET SQL_SAFE_UPDATES = 0;
-
-DELETE FROM ventas
-WHERE fecha_venta < '2023-01-01';
-
-SET SQL_SAFE_UPDATES = 1;  -- Reactivas SAFE MODE
-
--- Paso 3 - Verificar que los productos fueron borrados - DELETE
-SELECT COUNT(*)
-FROM ventas;
-
-/*** FASE 5 - Una venta atómica de verdad ***/
-/* START TRANSACTION → UPDATE → COMMIT/ROLLBACK */
--- Paso 1 — Se incia la transacción de cambios - venta completa
-START TRANSACTION;
-
--- Paso 2 — Revisamos los cambios a realizar - stock
-SELECT id, nombre, stock, precio
-FROM productos 
-WHERE id = 9 AND stock >= 3 AND fecha_borrado IS NULL;
-
--- Paso 3 — Se realizan los cambios - borrador de cambios - stock
-UPDATE productos
-SET stock = stock -3
-WHERE id = 9;
-
--- Paso 4 — Revisamos los cambios a realizar - ventas
-SELECT producto_id, cantidad, precio_venta, total
-FROM ventas;
-
--- Paso 5 — Capturar el precio actual en la variable - @precio_actual
-/* SELECT @precio_actual := precio FROM productos WHERE id = 9;
-SELECT @var := ... guarda un valor en una variable de sesión que puedes usar 
-en el siguiente statement. */
-SELECT precio
-INTO @precio_actual
-FROM productos 
-WHERE id = 9;
-
--- Paso 6 — Se realizan los cambios - insertar venta en tabla ventas
-INSERT INTO ventas
-	(producto_id, cantidad, precio_venta, total)
-VALUES
-	(9,3,@precio_actual,@precio_actual*3);
-
--- Paso 7 — Verificamos cambios realizados - stock
-SELECT id, nombre, stock, precio
-FROM productos 
-WHERE id = 9;
-
--- Paso 7 — Verificamos cambios realizados - ventas
-SELECT * 
-FROM ventas 
-WHERE id = LAST_INSERT_ID();
-
--- Paso 8 — Aplicamos los cambios realizados en las tablas productos / ventas
-COMMIT;
--- ROLLBACK;
-
--- Paso 9 — Confirmamos cambios realizados en productivo en las tablas productos / ventas
-SELECT id, nombre, stock, precio
-FROM productos 
-WHERE id = 9;
-
-SELECT * 
-FROM ventas
-WHERE producto_id = 9;
-
-/*** FASE 6 - BONUS ***/
-
-/** Reporte 1 — Productos en alerta de stock bajo (con prioridad)  **/
-SELECT nombre, stock, stock_minimo, activo, stock_minimo - stock AS unidades_faltantes
-FROM productos
-WHERE stock < stock_minimo AND fecha_borrado IS NULL
-ORDER BY unidades_faltantes DESC;
-
-
-/** Reporte 2 — Margen de ganancia top 10  **/
-SELECT nombre, precio, costo, precio - costo AS margen_absoluto, 
-		ROUND(((precio - costo)/precio)*100,2) AS margen_porcentual
-FROM productos
-WHERE fecha_borrado IS NULL
-ORDER BY margen_absoluto DESC
-LIMIT 10;
-
-/** Reporte 3 — Revenue por categoría  **/
-SELECT p.categoria, sum(v.total) AS Total, count(v.id) AS Num_ventas, sum(v.cantidad) AS Unidades
-FROM ventas AS v
-JOIN productos AS p  ON p.id = v.producto_id
-GROUP BY p.categoria
-ORDER BY Total DESC;
+-- Libros co-escritos (más de un autor) — debe salir solo Deep Learning
+SELECT b.title, COUNT(*) AS num_authors
+FROM book_authors ba
+JOIN books b ON ba.book_id = b.id
+GROUP BY ba.book_id, b.title
+HAVING COUNT(*) > 1;
+--------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+/*** FASE 4 - CARGAR PRESTAMOS ***/

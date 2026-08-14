@@ -371,3 +371,41 @@ HAVING COUNT(*) > 1;
 --------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------
 /*** FASE 4 - CARGAR PRESTAMOS ***/
+/** Insertamos parejas libro-autor en la tabla book_authors **/
+INSERT INTO loans (user_id, book_id, loan_date, due_date, return_date, fine, notes)
+VALUES
+      -- Devueltos (históricos, multa ya guardada — tarifa: $2.50 por día de retraso)
+      (1, 1, '2024-01-01', '2024-01-15', '2024-01-14',  0.00),    -- Alice, devolvió a tiempo
+      (2, 3, '2024-01-05', '2024-01-19', '2024-01-25', 15.00),    -- Charles, 6 días tarde × 2.50
+      (3, 5, '2024-01-08', '2024-01-22', '2024-01-20',  0.00),    -- Mary, devolvió antes
+      (1, 8, '2024-01-10', '2024-01-24', '2024-01-23',  0.00),    -- Alice, a tiempo
+      (4, 9, '2024-01-12', '2024-01-26', '2024-02-05', 25.00),    -- John, 10 días tarde × 2.50
+
+      -- Activos (return_date = NULL; fechas relativas a HOY)
+      -- Usamos DATE_SUB(CURDATE() para que las fechas sean recientes basados en el día de ejecución en SQL
+      (1,  4, DATE_SUB(CURDATE(), INTERVAL 20 DAY), DATE_SUB(CURDATE(), INTERVAL  6 DAY), NULL, 0.00),  -- Alice, 6 días vencido
+      (5,  5, DATE_SUB(CURDATE(), INTERVAL 12 DAY), DATE_ADD(CURDATE(), INTERVAL  2 DAY), NULL, 0.00),  -- Lucy, al corriente
+      (6, 10, DATE_SUB(CURDATE(), INTERVAL  9 DAY), DATE_ADD(CURDATE(), INTERVAL  5 DAY), NULL, 0.00),  -- Sophie, al corriente
+      (7, 14, DATE_SUB(CURDATE(), INTERVAL  6 DAY), DATE_ADD(CURDATE(), INTERVAL  8 DAY), NULL, 0.00),  -- David, al corriente
+      (2, 11, DATE_SUB(CURDATE(), INTERVAL  4 DAY), DATE_ADD(CURDATE(), INTERVAL 10 DAY), NULL, 0.00);  -- Charles, al corriente
+--------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+/*** FASE 5 - REPORTES CON JOINs ***/
+
+/** Consulta - Libros de tecnología por su autor **/
+SELECT
+      b.title,
+      a.name as author,
+      b.stock
+FROM books        b
+JOIN categories   c  on b.category_id = c.id
+JOIN book_authors ba on ba.book_id    = b.id
+JOIN authors      a  on ba.author_id  = a.id
+WHERE c.name = 'Technology'
+ORDER BY ba.author_order;
+
+/** Consulta - Usuarios con préstamos activos **/
+
+/** Consulta - LTop 5 libros más prestados **/
+
+/** Consulta - Total de multas por usuario **/

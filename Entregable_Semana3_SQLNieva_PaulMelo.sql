@@ -2,7 +2,7 @@
 -- ENTREGABLE SEMANA 3
 -- BIBLIOTECA PUBLICA - BIBLIOTECH
 -- Nombre: [PAUL SEBASTIAN MELO]
--- Fecha: [10-07-2026]
+-- Fecha: [24-08-2026]
 -- =====================================
 /*** FASE 1 - DISEÑAR ERD ***/
 
@@ -584,3 +584,79 @@ SELECT id, title, category_id
 FROM books
 WHERE category_id = 3
 ORDER BY category_id; -- id = 7
+
+START TRANSACTION;
+
+/** Verificamos libro - id = 7 **/
+SELECT id, title, category_id
+FROM books
+WHERE id = 7;
+
+/** Borramos categoría - category_id = 3 **/
+DELETE FROM categories
+WHERE id = 3;
+
+/** Verificamos libro - id = 7 **/
+-- El libro NO desaparece, solo queda con category_id = NULL
+SELECT id, title, category_id
+FROM books
+WHERE id = 7;
+
+ROLLBACK;
+-- COMMIT;
+
+/** ON DELETE RESTRICT (en loans.user_id) **/
+-- Intentar borrar a Alice (id=1), que tiene préstamos → RESTRICT lo impide
+DELETE FROM users WHERE id = 1;
+
+START TRANSACTION;
+
+/** Verificamos id = 1 en tabla loans **/
+SELECT *
+FROM loans
+WHERE user_id = 1;
+
+/** Desbloqueamos Safe Updates para borrar prestamos y que RESTRICT no sea un problema **/
+SET SQL_SAFE_UPDATES = 0;
+/** Eliminamos prestamos asociados a user_id = 1 **/
+DELETE 
+FROM loans
+WHERE user_id = 1;
+/** Normalizamos Safe Updates para garantizar que al intentar borrar un usuario → RESTRICT lo impida **/
+SET SQL_SAFE_UPDATES = 1;
+
+/** Eliminamos usuario id = 1 **/
+DELETE
+FROM users
+WHERE id = 1;
+
+ROLLBACK; -- Deshacemos la transaccion
+
+/** Verificamos que el user id = 1 sigue existiendo **/
+SELECT *
+FROM users 
+WHERE id = 1;
+
+/** CHECK rechazando valores inválidos **/
+-- Año fuera del rango permitido (1450–2100)
+INSERT INTO books (isbn, title, publication_year, price)
+VALUES ('978-0000000001', 'Medieval manuscript', 1200, 29.99);
+
+-- Precio negativo
+INSERT INTO books (isbn, title, publication_year, price)
+VALUES ('978-0000000002', 'Free book', 2020, -10.00);
+--------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+/*** BONUS - TABLA RESEÑAS ***/
+CREATE TABLE reviews (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    user_id      INT NOT NULL, /** ID usuarios, FK tabla users **/
+    book_id      INT NOT NULL, /** ID libro, FK tabla books **/
+    rating       INT,
+    comment      TEXT,
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_rating CHECK (rating BETWEEN 1 AND 5),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (book_id) REFERENCES book(id)  ON DELETE CASCADE,
+    UNIQUE (user_id, book_id)  -- Un usuario reseña un libro una sola vez
+);

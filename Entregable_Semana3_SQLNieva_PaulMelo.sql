@@ -166,7 +166,7 @@ CREATE TABLE categories (
 );
 
 /** Insertamos las categorías de los libros **/
-INSERT INTO productos (name, descripcion)
+INSERT INTO categories (name, description)
 VALUES
       ('Fiction',    'Novels and fiction stories'),
       ('Science',    'Scientific and technical books'),
@@ -222,7 +222,7 @@ CREATE TABLE books (
 );
 
 /** Insertamos los libros **/
-INSERT INTO books (isbn, title, category_id, year_publication, price, stock)
+INSERT INTO books (isbn, title, category_id, publication_year, price, stock)
 VALUES
     -- Fiction (cat 1)
       ('978-0307474728', 'One Hundred Years of Solitude',            1, 1967, 18.99, 5),
@@ -279,9 +279,9 @@ CREATE TABLE loans (
     user_id      INT NOT NULL,                         /** ID usuarios, FK tabla users **/
     book_id      INT NOT NULL,                         /** ID libros, FK tabla books **/
     loan_date    DATE NOT NULL DEFAULT (CURRENT_DATE), /** Fecha prestamo **/
-    due_date     DATE NOT NULL,
-    return_date  DATE,
-    fine         DECIMAL(10,2) DEFAULT 0.00,
+    due_date     DATE NOT NULL,                        /** Fecha vencimiento **/
+    return_date  DATE,                                 /** Fecha devolución **/
+    fine         DECIMAL(10,2) DEFAULT 0.00,           /** Valor multa **/
     notes        TEXT,
 
     CONSTRAINT fk_loans_users
@@ -307,10 +307,10 @@ DESCRIBE users;
 
 /* Validamos la informacion */
 SELECT
-  SELECT COUNT(*) FROM categories   AS categories,
-  SELECT COUNT(*) FROM authors      AS authors,
-  SELECT COUNT(*) FROM books        AS books,
-  SELECT COUNT(*) FROM users        AS users;
+  (SELECT COUNT(*) FROM categories)   AS categories,
+  (SELECT COUNT(*) FROM authors)      AS authors,
+  (SELECT COUNT(*) FROM books)        AS books,
+  (SELECT COUNT(*) FROM users)        AS users;
 --------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------
 /*** FASE 3 - TABLA UNIION N:M ***/
@@ -327,7 +327,7 @@ CREATE TABLE book_authors (
     author_id     INT NOT NULL,   /** ID autores, FK tabla authors **/
     author_order  INT DEFAULT 1,  /** 1 = autor principal, 2 = co-autor, etc **/
 
-    PRIMARY KEY (book_id, author_id)
+    PRIMARY KEY (book_id, author_id),
 
     CONSTRAINT fk_ba_books
       FOREIGN KEY (book_id) REFERENCES books(id)
@@ -372,7 +372,7 @@ HAVING COUNT(*) > 1;
 --------------------------------------------------------------------------------------------------
 /*** FASE 4 - CARGAR PRESTAMOS ***/
 /** Insertamos parejas libro-autor en la tabla book_authors **/
-INSERT INTO loans (user_id, book_id, loan_date, due_date, return_date, fine, notes)
+INSERT INTO loans (user_id, book_id, loan_date, due_date, return_date, fine)
 VALUES
       -- Devueltos (históricos, multa ya guardada — tarifa: $2.50 por día de retraso)
       (1, 1, '2024-01-01', '2024-01-15', '2024-01-14',  0.00),    -- Alice, devolvió a tiempo
@@ -394,18 +394,193 @@ VALUES
 
 /** Consulta - Libros de tecnología por su autor **/
 SELECT
-      b.title,
-      a.name as author,
-      b.stock
-FROM books        b
-JOIN categories   c  on b.category_id = c.id
-JOIN book_authors ba on ba.book_id    = b.id
-JOIN authors      a  on ba.author_id  = a.id
+	b.title,
+    a.name AS author
+FROM books        AS b
+JOIN categories   AS c  ON b.category_id = c.id
+JOIN book_authors AS ba ON ba.book_id    = b.id
+JOIN authors      AS a  ON ba.author_id  = a.id
 WHERE c.name = 'Technology'
 ORDER BY ba.author_order;
 
 /** Consulta - Usuarios con préstamos activos **/
+-- DATEDIFF(a, b) devuelve los días entre dos fechas. Si days_late es positivo, el usuario está atrasado
+SELECT
+	u.name                          AS user,
+    b.title                         AS book,
+    l.due_date,
+    DATEDIFF(CURDATE(), l.due_date) AS days_late
+FROM users AS u
+JOIN loans AS l ON l.user_id = u.id
+JOIN books AS b ON l.book_id = b.id
+WHERE return_date IS NULL
+ORDER BY l.due_date, u.name;
 
-/** Consulta - LTop 5 libros más prestados **/
+/** Consulta - Top 5 libros más prestados **/
+SELECT 
+	b.title AS book,
+    a.name  AS author,
+    COUNT(l.book_id) AS times_borrowed
+FROM books        b
+JOIN loans        l  ON l.book_id    = b.id
+JOIN book_authors ba ON ba.book_id   = l.book_id
+JOIN authors      a  ON ba.author_id = a.id
+GROUP BY l.book_id, b.title, a.name
+ORDER BY COUNT(l.book_id) DESC
+LIMIT 5;
 
 /** Consulta - Total de multas por usuario **/
+SELECT *
+FROM users u
+JOIN loans l ON l.user_id = u.id
+WHERE l.fine != 0;
+
+SELECT
+	u.name,
+    SUM(l.fine)      AS total_fines,
+    COUNT(l.user_id) AS fines_User
+FROM users u
+JOIN loans l ON l.user_id = u.id
+WHERE l.fine != 0
+GROUP BY u.name
+ORDER BY total_fines DESC;
+
+-- HAVING filtra después de agrupar (a diferencia de WHERE, que filtra antes).
+SELECT
+	u.name,
+    SUM(l.fine)      AS total_fines,
+    COUNT(l.user_id) AS fines_User
+FROM users u
+JOIN loans l ON l.user_id = u.id
+GROUP BY u.name
+HAVING total_fines > 0
+ORDER BY total_fines DESC;
+--------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+/*** FASE 6 - PRESTAMO Y DEVOLUCION CON TRANSACCIONES ***/
+
+/** REGISTRAR PRESTAMOS **/
+-- Mary (id=3) quiere llevarse el libro Deep Learning (id=12)
+-- Requiere bajar stock y registrar prestamo
+
+/** PASO 1 - ABRIR TRANSACCION Y VERIFICAR STOCK **/
+
+START TRANSACTION;
+
+/** Verificamos Stock **/
+SELECT id, title, stock
+FROM books
+WHERE id = 12 AND stock > 0;
+
+/** PASO 2 - REDUCIR STOCK **/
+UPDATE books
+SET stock = stock - 1
+WHERE id = 12;
+
+/** PASO 3 - REGISTRAR PRESTAMO **/
+INSERT INTO loans (user_id, book_id, loan_date, due_date)
+VALUES
+      -- Usamos DATE_SUB(CURDATE() para que las fechas sean recientes basados en el día de ejecución en SQL
+      (3,  12, CURDATE(), DATE_ADD(CURDATE(), INTERVAL  14 DAY));  -- Mary
+
+/** PASO 4 - VERIFICAR CAMBIOS PASO 2 - PASO 3 **/
+/** Verificamos stock id = 12 **/
+SELECT id, title, stock
+FROM books
+WHERE id = 12 AND stock > 0;
+
+/** Verificamos utimo prestamo registrado **/
+-- LAST_INSERT_ID() devuelve el ultimo registro insertado en la tabla loans
+SELECT *
+FROM loans
+WHERE id = LAST_INSERT_ID();
+
+/** PASO 5 - CERRAR OPERACION (COMMIT) **/
+COMMIT;
+-- ROLLBACK;
+--------------------------------------------------------------------------------------------------
+/** PROCESAR DEVULUCION CON MULTA **/
+-- Alice (id=1) devuelve el libro A Brief History of Time (id=4)
+-- Prestamo (id=6) vencido 6 días. Multa de $2.50/día
+-- Operacion inversa al préstamo: marcar devuelto + calcular multa + sumar stock.
+
+/** PASO 1 - ABRIR TRANSACCION Y CALCULAR MULTA **/
+START TRANSACTION;
+
+/** Verificamos prestamo en loans **/
+SELECT *
+FROM loans
+WHERE user_id = 1 AND book_id = 4;
+
+/** Verificamos Stock **/
+SELECT id, title, stock
+FROM books
+WHERE id = 4;
+
+/** Calculamos multa - días de multa **/
+SELECT 
+	id, 
+	due_date, 
+    DATEDIFF(CURDATE(), due_date) AS days_late,
+    GREATEST(0, DATEDIFF(CURDATE(), due_date) * 2.50) AS fine_new
+FROM loans
+WHERE id = 6;
+-- GREATEST(0, X) "clampa" al cero: si Alice hubiera devuelto antes de tiempo, la multa sería 0, nunca negativa.
+
+-- Nota sobre SET @variable: @days_late y @fine son variables de sesión 
+-- un post-it temporal que vive mientras no cierres la conexión.
+
+/** Calculamos multa - días de multa. Usamos variables de sesion @days_late y @fine **/
+SET @days_late = (
+	SELECT DATEDIFF(CURDATE(), due_date)
+    FROM loans
+    WHERE id = 6
+);
+
+SET @fine = (
+	GREATEST(0, @days_late * 2.50)
+);
+
+/** PASO 2 - MARCAR PRESTAMO CON DEVUELTO y APLCIAR MULTA **/
+UPDATE loans
+SET return_date = CURDATE(),
+	fine = @fine
+WHERE id = 6;
+
+/** PASO 3 - DEVOLVER A STOCK **/
+UPDATE books
+SET stock = stock + 1
+WHERE id = (
+	SELECT book_id
+    FROM loans
+    WHERE id = 6
+);
+
+/** PASO 4 - VERIFICAR CAMBIOS PASO 2 - PASO 3 **/
+/** Verificamos Stock id = 4 **/
+SELECT id, title, stock
+FROM books
+WHERE id = 4;
+
+/** Verificamos datos del prestamo en loans **/
+SELECT id, return_date, fine
+FROM loans
+WHERE id = 6;
+
+/** PASO 5 - CERRAR OPERACION (COMMIT) **/
+COMMIT;
+-- ROLLBACK;
+--------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+/*** FASE 7 - PROBAR INTEGRIDAD REFERENCIAL SIN DESTRUIR DATOS ***/
+
+/** ON DELETE SET NULL (en books.category_id) **/
+-- La categoría 3 es "History". 
+-- El único libro de esa categoría es 21 Lessons for the 21st Century (libro 7). 
+-- Veamos qué pasa si la borramos
+
+/** Verificamos libros por categoría - category_id = 3 **/
+SELECT id, title, category_id
+FROM books
+WHERE category_id = 3
+ORDER BY category_id; -- id = 7

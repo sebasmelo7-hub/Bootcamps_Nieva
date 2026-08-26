@@ -4,7 +4,7 @@
 -- Nombre: [PAUL SEBASTIAN MELO]
 -- Fecha: [28-08-2026]
 -- =====================================
-/*** FASE 1 - MONTAR SISTEMA ESCOLAR ***/
+/*** FASE 0 - MONTAR SISTEMA ESCOLAR ***/
 -- Base de datos cruda con: departamentos, profesores, estudiantes, cursos, inscripciones
 -- Responder 15 preguntas de negocio: 
 -- ¿quién enseña qué?, ¿qué estudiantes no se han inscrito en nada?, 
@@ -111,7 +111,7 @@ use techmaster_university;
 select database();
 --------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------
-/*** FASE 2 - TABLAS PRINCIPALES ***/
+/*** FASE 1 - TABLAS PRINCIPALES ***/
 /*
 1. departments    (no depende de nadie)
 2. professors     (depende de departments & de sí misma vía manager_id)
@@ -348,7 +348,7 @@ value
 -- Error Code: 1062. Duplicate entry '2-1' for key 'enrollments.PRIMARY'
 --------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------
-/*** FASE 3 - INNER JOIN ***/
+/*** FASE 2 - INNER JOIN ***/
 /*
 ┌───────────────┐                ┌──────────────────┐
 │  DEPARTMENTS  │      1:N       │    PROFESSORS    │
@@ -448,7 +448,7 @@ from courses      c
 join enrollments e on e.course_id = c.id
 order by c.id;
 
-/* 3. Usamos JOIN para traer estudiante - inscripcion - curso */
+/* 2. Usamos JOIN para traer estudiante - inscripcion - curso */
 select 
 	s.name as student,
     c.code,
@@ -458,7 +458,7 @@ join enrollments e on e.student_id = s.id
 join courses     c on e.course_id  = c.id
 order by c.code, s.name;
 
-/* 2. Usamos JOIN para traer estudiante - inscripcion - curso - calificacion */
+/* 3. Usamos JOIN para traer estudiante - inscripcion - curso - calificacion */
 select 
 	s.name as student,
     e.grade,
@@ -470,7 +470,7 @@ where c.code = 'MATH101' and e.grade is not null
 order by e.grade desc;
 --------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------
-/*** FASE 4 - LEFT JOIN ***/
+/*** FASE 3 - LEFT JOIN ***/
 /*
 ┌──────────────────┐                    ┌────────────────┐
 │     COURSES      │        N:1         │   PROFESSORS   │
@@ -622,4 +622,416 @@ where c.id is null
 order by p.name, c.code;
 --------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------
-/*** FASE 5 - ENCADENAR TABLAS ***/
+/*** FASE 4 - ENCADENAR TABLAS ***/
+/*
+┌──────────┐      ┌─────────────┐      ┌─────────┐      ┌─────────────┐
+│ STUDENTS │<─────│ ENROLLMENTS │─────>│ COURSES │─────>│ DEPARTMENTS │
+└──────────┘      └─────────────┘      └─────────┘      └─────────────┘
+    🔑 id  =  🔗 student_id · 🔗 course_id  =  🔑 id │ 🔗 department_id = 🔑 id
+                    ▲ el HUB (la N:M)               │
+                                                    │ 🔗 professor_id = 🔑 id
+                                                    v
+                                             ┌────────────┐
+                                             │ PROFESSORS │
+                                             └────────────┘
+*/
+
+/** QUERY 7 - POR DEPARTAMENTO: CUANTOS PROFESORES Y CURSOS **/
+-- Tamaño de cada departamento: profesores y cursos". "Cada departamento" 
+-- on p.department_id = d.id
+-- on c.department_id = d.id
+-- on c.professor_id  = p.id
+
+/* Validamos la lista de departamentos */
+select *
+from departments;
+
+/* Validamos la lista de profesores */
+select *
+from professors;
+
+/* Validamos la lista de cursos */
+-- Existe un curso sin asignación de profesor
+select *
+from courses;
+
+/* Usamos LEFT JOIN para por departamento los profesores y cursos */
+/* 1. Usamos JOIN para traer profesores por departamento */
+-- Sabemos que cada profesor tiene asignado un departamento
+select
+	d.name as department,
+    p.name as professor
+from departments d
+join professors  p on p.department_id = d.id 
+order by d.id desc, p.name;
+
+/* 2. Usamos LEFT JOIN para traer los cursos con su profesor por departamento */
+-- Existen un cursos sin asignación de profesor
+select
+	d.name as department,
+    p.name as professor,
+    c.code,
+    c.name as course
+from departments  d
+join professors   p on p.department_id = d.id
+left join courses c on c.department_id = d.id
+order by d.name;
+
+/* 3. Agruamos y contamos número de profesores y número de cursos */
+-- Usamos COUNT(DISTINCT ...) para contar valores unicos
+-- Usamos GROUP BY para agrupar por departamento
+select
+	d.name as department,
+    count(distinct p.id) as num_professors,
+    count(distinct c.id) as num_courses
+from departments  d
+join professors   p on p.department_id = d.id
+left join courses c on c.department_id = d.id
+group by d.id
+order by d.name;
+
+/** QUERY 8 - CURSOS DE C/ESTUDIANTE - (estudiante, código, curso, nota) **/
+-- "solo estudiantes con al menos una inscripción"
+-- on e.student_id = s.id
+-- on e.courses_id = c.id
+
+/* Validamos la lista de departamentos */
+select *
+from students;
+
+/* Validamos la lista de cursos */
+-- Existe un curso sin asignación de profesor
+select *
+from courses;
+
+-- No existe relacion directa entre estudiantes - cursos
+-- Usamos inscripciones para unir estudiantes y cursos
+/* Validamos la lista de inscripciones */
+select *
+from enrollments;
+
+/* Usamos JOIN para traer los estudiante con cursos */
+/* 1. Usamos tabla enrollments para traer los estudiantes con inscripción a cursos */
+select
+	s.name,
+    e.course_id
+from students    s
+join enrollments e on e.student_id = s.id
+order by e.course_id;
+
+/* 2. Usamos students - enrollments para traer los cursos de la tabla course */
+select
+	s.name as student,
+    c.code,
+    c.name as course,
+    e.grade,
+    e.status
+from students    s
+join enrollments e on e.student_id = s.id
+join courses     c on e.course_id  = c.id
+order by c.code, e.grade desc;
+
+/** QUERY 9 - ESTUDIANTES EN "Computer Science" CON CURSO y PROFESOR **/
+-- on e.student_id    = s.id
+-- on e.course_id     = c.id
+-- on c.professor_id  = p.id
+-- on c.department_id = d.id
+-- on p.department_id = d.id
+
+/* Validamos la lista de estudiantes */
+select *
+from students;
+
+/* Validamos la lista de cursos */
+select *
+from courses;
+
+/* Validamos la lista de cursos */
+select *
+from professors;
+
+-- No existe relacion directa entre estudiantes - cursos
+-- Usamos inscripciones para unir estudiantes y cursos
+/* Validamos la lista de inscripciones */
+select *
+from enrollments;
+
+/* Usamos JOIN para traer estudiante - inscripcion - curso - profesor */
+/* 1. Usamos JOIN para traer estudiante - inscripcion */
+select 
+	s.name as student,
+    e.student_id
+from students    s
+join enrollments e on e.student_id = s.id
+order by s.id;
+
+select 
+	c.name as course,
+    e.course_id
+from courses      c
+join enrollments e on e.course_id = c.id
+order by c.id;
+
+/* 2. Usamos JOIN para traer estudiante - inscripcion - curso */
+select 
+	s.name as student,
+    c.code,
+    c.name as course
+from students    s
+join enrollments e on e.student_id = s.id
+join courses     c on e.course_id  = c.id
+order by c.code, s.name;
+
+/* 3. Usamos JOIN para traer estudiante - inscripcion - curso - profesor */
+select 
+	s.name as student,
+    c.code,
+    c.name as course,
+    p.name as professor
+from students    s
+join enrollments e on e.student_id   = s.id
+join courses     c on e.course_id    = c.id
+join professors  p on c.professor_id = p.id
+order by c.code;
+
+/* 4. Usamos JOIN para traer estudiante - inscripcion - curso - profesor - departamento */
+-- on c.department_id = d.id
+-- on p.department_id = d.id
+select 
+	s.name as student,
+    c.code,
+    c.name as course,
+    p.name as professor,
+    d.name as department
+from students    s
+join enrollments e on e.student_id   = s.id
+join courses     c on e.course_id    = c.id
+join professors  p on c.professor_id = p.id
+join departments d on p.department_id = d.id
+-- where c.code = 'MATH101' and e.grade is not null
+order by c.code;
+
+/* 5. Usamos WHERE para filtrar por departamento - "Computer Science" */
+select 
+	s.name as student,
+    c.code,
+    c.name as course,
+    p.name as professor,
+    d.name as department
+from students    s
+join enrollments e on e.student_id   = s.id
+join courses     c on e.course_id    = c.id
+join professors  p on c.professor_id = p.id
+join departments d on p.department_id = d.id
+where d.name = 'Computer Science'
+order by c.code;
+
+/* Contamos número de estudiantes en "Computer Science" por curso */
+select
+	c.name as course,
+    p.name as professor,
+    d.name as department,
+    count(s.name) as num_students
+from students    s
+join enrollments e on e.student_id   = s.id
+join courses     c on e.course_id    = c.id
+join professors  p on c.professor_id = p.id
+join departments d on p.department_id = d.id
+where d.name = 'Computer Science'
+group by c.code;
+--------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+/*** FASE 5 - SELF JOIN ***/
+/*
+   En el ERD (una caja):              Al escribir el JOIN (dos alias):
+
+┌────────────────────┐        alias p (empleado)      alias m (jefe)
+│     PROFESSORS     │      ┌──────────────────┐    ┌──────────────────┐
+├────────────────────┤      │    PROFESSORS    │    │    PROFESSORS    │
+│ 🔑 id        <──┐  │  ==> ├──────────────────┤    ├──────────────────┤
+│ 🔗 manager_id ──┘  │      │ 🔑 id            │    │ 🔑 id            │<─┐
+│    salary          │      │ 🔗 manager_id ───┼────┼──────────────────┼──┘
+└────────────────────┘      │    salary        │1:N │    salary        │
+       SELF FK              └──────────────────┘    └──────────────────┘
+
+                              ON p.manager_id = m.id
+*/
+-- SELF JOIN une una tabla con ella misma, usando dos alias distintos como si fueran dos tablas.
+
+/** QUERY 10 - CADA PROFESOR CON EL NOMBRE DE SU JEFE **/
+-- "el organigrama: cada profesor y su jefe, con nombres" 
+-- on p.manager_id = p2.id
+
+/* Validamos la lista de profesores */
+select *
+from professors;
+
+/* Usamos INNER/LEFT JOIN para tener professors - manager */
+/* 1. Usamos JOIN para traer profesores con jefe */
+select
+    p.name  as professor,
+    p2.name as manager
+from professors p
+join professors p2 on p.manager_id = p2.id
+order by p.name;
+
+/* 2. Usamos LEFT JOIN para traer profesores con/sin jefe */
+-- Usamos COALESCE para convertir NULL en 'No manager'
+select
+    p.name  as professor,
+    coalesce(p2.name, 'NO MANAGER')as manager
+from professors      p
+left join professors p2 on p.manager_id = p2.id
+order by p.name;
+
+/** QUERY 11 - PROFESORES QUE GANAN MAS QUE SU JEFE **/
+-- on p.manager_id = p2.id
+
+/* Validamos la lista de profesores */
+select *
+from professors;
+
+/* Usamos JOIN para tener professors - manager - salary */
+/* 1. Usamos JOIN para traer profesores con jefe y salario */
+select
+    p.name  as professor,
+    p.salary,
+    p2.name as manager,
+    p2.salary
+from professors p
+join professors p2 on p.manager_id = p2.id
+order by p.name;
+
+/* 2. Usamos LEFT JOIN para traer profesores con/sin jefe */
+-- Usamos WHERE para comparar salarios p.salary > p2.salary
+-- No existe jefe con menor salario que un profesor
+select
+    p.name  as professor,
+    p.salary,
+    p2.name as manager,
+    p2.salary
+from professors p
+join professors p2 on p.manager_id = p2.id
+where p.salary > p2.salary
+order by p.name;
+
+/** QUERY 12 - PARES DE PROFESORES DEL MISMO DEPARTAMENTO **/
+-- "ponme junto a cada profesor todos los de su mismo depto"
+-- on p.manager_id    = p2.id
+-- on p.department_id = p2.department_id
+
+/* Validamos la lista de profesores */
+select *
+from professors;
+
+/* Usamos JOIN para tener professors - department - profesors */
+/* 1. Usamos JOIN para traer profesores con su par */
+select
+    p.name  as professor,
+    p2.name as professor2
+from professors  p
+join professors p2 on p.department_id = p2.department_id;
+
+/* 2. Usamos JOIN para traer profesores con departamento */
+-- Usamos la desigualdad para tener una sola versión de cada par - p1.id < p2.id 
+select
+    p.name  as professor,
+    p2.name as professor2,
+    d.name  as department
+from professors  p
+join professors p2 on p.department_id = p2.department_id and p.name < p2.name
+join departments d on p.department_id = d.id
+order by p.name, p2.name;
+
+/** DEMO - CROSS JOIN: el cartesiano a propósito **/
+-- un producto cartesiano empareja cada fila de A con cada fila de B.
+-- CROSS JOIN es el único que no lleva ON: no hay condición que cumplir.
+
+select s.name as student, c.code
+from students s
+cross join courses c
+order by s.name, c.code;
+
+/** Paso 2 - Version B. Usamos on - where **/
+-- WHERE se evalua despues del JOIN → LEFT JOIN se comporta como INNER JOIN
+select s.name, e.course_id, e.status
+from students        s
+left join enrollments e on e.student_id = s.id 
+where e.status = 'passed'
+order by s.name, e.course_id;
+--------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+/*** FASE 6 - QUERIES DE NEGOCIO ***/
+/*
+                    ┌─────────────┐
+                    │ DEPARTMENTS │  ← FROM: una fila por depto, pase lo que pase
+                    └─────────────┘
+                     /           \
+             LEFT   /             \   LEFT
+                   v               v
+        ┌────────────┐          ┌─────────┐          ┌─────────────┐
+        │ PROFESSORS │          │ COURSES │─── LEFT ─>│ ENROLLMENTS │
+        └────────────┘          └─────────┘          └─────────────┘
+         (rama corta)            (rama larga: sigue hasta el hub)
+
+  Dos ramas × varias filas cada una = filas repetidas → COUNT(DISTINCT ...)
+*/
+-- → JOIN correcto 
+-- → GROUP BY la entidad del reporte 
+-- → COUNT/SUM sin inflar 
+-- → ORDER BY lo que importa 
+-- → LIMIT si piden un top.
+
+/** QUERY 13 - TOP 3 CURSOS CON MÁS ESTUDIANTES INSCRITOS **/
+-- "cursos con más inscritos"
+-- "inscritos" de verdad → excluye los withdrawn
+
+/* Validamos la lista de profesores */
+select *
+from courses;
+
+/* Validamos la lista de profesores */
+select *
+from students;
+
+-- No existe relacion directa entre estudiantes - cursos
+-- Usamos inscripciones para unir estudiantes y cursos
+/* Validamos la lista de inscripciones */
+select *
+from enrollments;
+
+/* Usamos JOIN para traer los cursos con estudiantes inscritos */
+/* 1. Usamos tabla enrollments para traer los cursos con student_id */
+select c.code, c.name as course, e.student_id
+from courses     c
+join enrollments e on e.course_id = c.id
+order by e.course_id;
+
+/* 2. Usamos courses - enrollments para traer los estudiantes inscritos */
+select c.code, c.name as course, s.name as student
+from courses     c
+join enrollments e on e.course_id  = c.id
+join students    s on e.student_id = s.id
+order by e.course_id, s.name;
+-- 27 row(s) returned
+
+/* 4. Usamos courses - enrollments para traer los estudiantes inscritos. Excluyendo los withdrawn */
+select c.code, c.name as course, s.name as student
+from courses     c
+join enrollments e on e.course_id  = c.id
+join students    s on e.student_id = s.id
+where e.status <> 'withdrawn'
+order by e.course_id, s.name;
+-- 27 row(s) returned
+
+/* 4. Contamos número de estudiantes por curso */
+select 
+	c.code,
+    c.name as course, 
+    count(s.name) as num_students
+from courses     c
+join enrollments e on e.course_id  = c.id
+join students    s on e.student_id = s.id
+group by c.code
+order by num_students desc
+limit 3;

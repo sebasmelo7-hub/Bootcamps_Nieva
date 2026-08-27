@@ -1,3 +1,11 @@
+-- ======================================
+-- ENTREGABLE SEMANA 4 
+-- FASE 6 - QUERIES DE NEGOCIO
+-- UNIVERSIDAD TECHMASTER - TECHMASTER
+-- Nombre: [PAUL SEBASTIAN MELO]
+-- Fecha: [27-08-2026]
+-- =====================================
+
 /*** FASE 6 - QUERIES DE NEGOCIO ***/
 /*
                     ┌─────────────┐

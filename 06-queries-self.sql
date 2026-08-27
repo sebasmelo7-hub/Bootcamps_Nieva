@@ -1,3 +1,11 @@
+-- ======================================
+-- ENTREGABLE SEMANA 4
+-- FASE 5 - SELF JOIN
+-- UNIVERSIDAD TECHMASTER - TECHMASTER
+-- Nombre: [PAUL SEBASTIAN MELO]
+-- Fecha: [27-08-2026]
+-- =====================================
+
 /*** FASE 5 - SELF JOIN ***/
 /*
    En el ERD (una caja):              Al escribir el JOIN (dos alias):

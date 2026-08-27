@@ -1,6 +1,6 @@
 -- ======================================
 -- ENTREGABLE SEMANA 4 
--- FASE 3 -  INNER JOIN
+-- FASE 2 -  INNER JOIN
 -- UNIVERSIDAD TECHMASTER - TECHMASTER
 -- Nombre: [PAUL SEBASTIAN MELO]
 -- Fecha: [27-08-2026]
@@ -14,7 +14,7 @@
 │ 🔑 id         │<───────────────│ 🔗 department_id │
 │    name       │                │    name          │
 └───────────────┘                └──────────────────┘
- 
+
           ON p.department_id = d.id   (🔗 FK = 🔑 PK)
 */
 

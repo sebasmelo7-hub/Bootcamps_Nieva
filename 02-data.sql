@@ -1,3 +1,11 @@
+-- ======================================
+-- ENTREGABLE SEMANA 4 
+-- FASE 1 -  INSERT DATA
+-- UNIVERSIDAD TECHMASTER - TECHMASTER
+-- Nombre: [PAUL SEBASTIAN MELO]
+-- Fecha: [27-08-2026]
+-- =====================================
+
 /*** FASE 1 - TABLAS PRINCIPALES ***/
 /*
 1. departments    (no depende de nadie)

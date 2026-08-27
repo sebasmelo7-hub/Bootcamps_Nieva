@@ -1,6 +1,6 @@
 -- ======================================
 -- ENTREGABLE SEMANA 4 
--- FASE 2 -  LEFT JOIN
+-- FASE 3 -  LEFT JOIN
 -- UNIVERSIDAD TECHMASTER - TECHMASTER
 -- Nombre: [PAUL SEBASTIAN MELO]
 -- Fecha: [27-08-2026]

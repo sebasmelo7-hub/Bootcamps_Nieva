@@ -28,7 +28,7 @@ Table professors {
   id             int     [pk, increment]
   name           varchar [not null]
   email          varchar [unique]
-  department_id  int     [ref: > department.id]  // professors → departments (N:1)
+  department_id  int     [ref: > departments.id]  // professors → departments (N:1)
   manager_id     int     [ref: > professors.id]  // 👈 SELF FK: it points to ITS OWN table!
   salary         decimal
   hire_date      date
@@ -201,8 +201,6 @@ create table enrollments (
     grade            decimal(4,2),                        
     status           enum('enrolled', 'passed', 'failed', 'withdrawn')
 						default 'enrolled',           /** Estado del estudiante **/
-	
-    primary key (student_id, course_id),
     
     constraint fk_enrollment_students
 		foreign key (student_id) references students(id)
@@ -298,7 +296,7 @@ values
 
 show tables;
 describe departments;
-describe professor;
+describe professors;
 describe students;
 describe courses;
 
@@ -1148,8 +1146,8 @@ select
     count(distinct c.code) as num_courses,
     count(distinct s.id)   as num_students
 from departments      d
-join professors       p on p.department_id = d.id
-join courses          c on c.department_id = d.id
+left join professors       p on p.department_id = d.id
+left join courses          c on c.department_id = d.id
 left join enrollments e on e.course_id     = c.id
 left join students    s on e.student_id    = s.id
 group by d.name
@@ -1161,8 +1159,8 @@ select
     count(distinct c.code)       as num_courses,
     count(distinct e.student_id) as num_students
 from departments      d
-join professors       p on p.department_id = d.id
-join courses          c on c.department_id = d.id
+left join professors       p on p.department_id = d.id
+left join courses          c on c.department_id = d.id
 left join enrollments e on e.course_id     = c.id
 group by d.name
 order by num_professors desc, num_students desc;

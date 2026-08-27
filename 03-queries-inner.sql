@@ -14,7 +14,7 @@
 │ 🔑 id         │<───────────────│ 🔗 department_id │
 │    name       │                │    name          │
 └───────────────┘                └──────────────────┘
-
+ 
           ON p.department_id = d.id   (🔗 FK = 🔑 PK)
 */
 

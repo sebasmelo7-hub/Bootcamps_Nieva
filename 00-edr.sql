@@ -1,9 +1,11 @@
 -- ======================================
 -- ENTREGABLE SEMANA 4
+-- FASE 0 - EDR dbdiagram.io
 -- UNIVERSIDAD TECHMASTER - TECHMASTER
 -- Nombre: [PAUL SEBASTIAN MELO]
 -- Fecha: [28-08-2026]
 -- =====================================
+
 /*** FASE 0 - MONTAR SISTEMA ESCOLAR ***/
 -- Base de datos cruda con: departamentos, profesores, estudiantes, cursos, inscripciones
 -- Responder 15 preguntas de negocio: 

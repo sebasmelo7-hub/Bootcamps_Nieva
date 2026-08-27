@@ -1,3 +1,11 @@
+-- ======================================
+-- ENTREGABLE SEMANA 4 
+-- FASE 1 -  CREATE TABLES
+-- UNIVERSIDAD TECHMASTER - TECHMASTER
+-- Nombre: [PAUL SEBASTIAN MELO]
+-- Fecha: [28-08-2026]
+-- =====================================
+
 drop database if exists techmaster_university;
 create database techmaster_university;
 

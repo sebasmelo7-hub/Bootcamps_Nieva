@@ -545,7 +545,7 @@ join products p on s.product_id = p.id;
 -- ANALYTICS TECHMART E-COMMERCE
 -- BONIFICACION
 -- Nombre: [PAUL SEBASTIAN MELO]
--- Fecha: [15-09-2026]
+-- Fecha: [24-09-2026]
 -- =====================================
 
 /*** BONIFICACION ***/
@@ -553,3 +553,27 @@ join products p on s.product_id = p.id;
 -- "¿Qué día de la semana se vende más?" ( DAYNAME(sale_date))
 -- "¿Cuál es el precio promedio de las entradas por categoría?"
 -- "¿Productos que nunca se han vendido?" ( LEFT JOIN ... WHERE v.id IS NULL→ aquí Refactoringaparece el producto n.° 24 del que te avisó R1)
+
+/** B1. PRODUCTOS QUE NUNCA SE HAN VENDIDO **/
+select
+	c.name    as category,
+	p.name    as product,
+	p.price,
+	p.stock,
+	p.added_date
+from products   p
+left join sales s on s.product_id  = p.id
+join categories c on p.category_id = c.id
+where s.id is null
+order by category, p.price desc;
+
+/** B2. RENDIMIENTO DE VENTAS POR DÍA DE LA SEMANA **/
+select 
+    dayname(sale_date)      as day_of_week,
+	-- dayname, extrae el dia de la semana
+    count(distinct s.id)    as total_sales,
+    sum(s.quantity)         as units_sold,
+    concat('$', format(sum(s.quantity * s.unit_price * (1 - s.discount/100)), 2)) as day_revenue
+from sales s
+group by day_of_week
+order by sum(s.quantity * s.unit_price * (1 - s.discount/100)) desc;
